@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>圈圈叉叉遊戲</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background: #f4f4f4;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 100px);
+            grid-template-rows: repeat(3, 100px);
+            gap: 10px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        .cell {
+            width: 100px;
+            height: 100px;
+            background-color: #fff;
+            border: 2px solid #333;
+            font-size: 40px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .cell:hover {
+            background-color: #eaeaea;
+        }
+
+        #message {
+            font-size: 18px;
+            margin-top: 20px;
+            color: green;
+        }
+
+        /* 勝利時的動畫 */
+        .win {
+            animation: victoryAnimation 1.5s ease-out;
+        }
+
+        @keyframes victoryAnimation {
+            0% { transform: scale(1); color: gold; }
+            50% { transform: scale(1.2); color: red; }
+            100% { transform: scale(1); color: green; }
+        }
+    </style>
+</head>
+<body>
+    <h1>圈圈叉叉遊戲</h1>
+    <div class="board" id="board">
+        <!-- 這裡會動態生成 3x3 的格子 -->
+    </div>
+    <p id="message"></p>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const board = document.getElementById("board");
+            const message = document.getElementById("message");
+            let currentPlayer = 'X'; // X 玩家先開始
+            let gameBoard = ['', '', '', '', '', '', '', '', '']; // 3x3 遊戲格
+            let gameOver = false;
+
+            // 初始化遊戲格子
+            function initializeBoard() {
+                board.innerHTML = '';
+                gameBoard = ['', '', '', '', '', '', '', '', ''];
+                gameOver = false;
+                message.textContent = `輪到玩家 ${currentPlayer}`;
+
+                // 生成 3x3 的格子
+                for (let i = 0; i < 9; i++) {
+                    const cell = document.createElement('div');
+                    cell.classList.add('cell');
+                    cell.dataset.index = i;
+                    cell.addEventListener('click', handleClick);
+                    board.appendChild(cell);
+                }
+
+                // 開始時，讓電腦執行回合
+                if (currentPlayer === 'O') {
+                    setTimeout(computerMove, 500); // 等待電腦回合
+                }
+            }
+
+            // 處理玩家點擊的事件
+            function handleClick(event) {
+                if (gameOver) return;
+                const index = event.target.dataset.index;
+
+                // 如果該格子已經有標記則不做任何處理
+                if (gameBoard[index] !== '') return;
+
+                // 玩家選擇
+                gameBoard[index] = currentPlayer;
+                event.target.textContent = currentPlayer;
+
+                // 檢查是否有玩家獲勝
+                if (checkWinner()) {
+                    message.textContent = `玩家 ${currentPlayer} 獲勝！`;
+                    showWinEffect();
+                    gameOver = true;
+                    setTimeout(initializeBoard, 2000); // 2秒後自動重新開始
+                    return;
+                }
+
+                // 檢查是否是平手
+                if (gameBoard.every(cell => cell !== '')) {
+                    message.textContent = "平手！";
+                    gameOver = true;
+                    setTimeout(initializeBoard, 2000); // 2秒後自動重新開始
+                    return;
+                }
+
+                // 切換到下個玩家
+                currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+                message.textContent = `輪到玩家 ${currentPlayer}`;
+
+                // 如果是電腦回合
+                if (currentPlayer === 'O' && !gameOver) {
+                    setTimeout(computerMove, 500); // 等待電腦回合
+                }
+            }
+
+            // 電腦的最佳選擇
+            function computerMove() {
+                const bestMove = minimax(gameBoard, 'O');
+                gameBoard[bestMove.index] = 'O';
+
+                const cell = document.querySelectorAll('.cell')[bestMove.index];
+                cell.textContent = 'O';
+
+                // 檢查是否有玩家獲勝
+                if (checkWinner()) {
+                    message.textContent = `玩家 ${currentPlayer} 獲勝！`;
+                    showWinEffect();
+                    gameOver = true;
+                    setTimeout(initializeBoard, 2000); // 2秒後自動重新開始
+                    return;
+                }
+
+                // 檢查是否是平手
+                if (gameBoard.every(cell => cell !== '')) {
+                    message.textContent = "平手！";
+                    gameOver = true;
+                    setTimeout(initializeBoard, 2000); // 2秒後自動重新開始
+                    return;
+                }
+
+                // 切換到下個玩家
+                currentPlayer = 'X';
+                message.textContent = `輪到玩家 ${currentPlayer}`;
+            }
+
+            // Minimax 演算法：計算最佳選擇
+            function minimax(board, player) {
+                const availableMoves = getAvailableMoves(board);
+                if (checkWinner(board, 'X')) {
+                    return { score: -10 };
+                } else if (checkWinner(board, 'O')) {
+                    return { score: 10 };
+                } else if (availableMoves.length === 0) {
+                    return { score: 0 };
+                }
+
+                const moves = [];
+                availableMoves.forEach(move => {
+                    const newBoard = board.slice();
+                    newBoard[move] = player;
+                    const score = minimax(newBoard, player === 'O' ? 'X' : 'O').score;
+                    moves.push({ index: move, score });
+                });
+
+                // 讓電腦優先防守（防止玩家獲勝）
+                if (player === 'O') {
+                    return moves.reduce((bestMove, move) => move.score > bestMove.score ? move : bestMove);
+                } else {
+                    return moves.reduce((bestMove, move) => move.score < bestMove.score ? move : bestMove);
+                }
+            }
+
+            // 獲取當前棋盤上所有空白格
+            function getAvailableMoves(board) {
+                return board.map((value, index) => value === '' ? index : null).filter(index => index !== null);
+            }
+
+            // 檢查是否有玩家獲勝
+            function checkWinner(board = gameBoard) {
+                const winPatterns = [
+                    [0, 1, 2], [3, 4, 5], [6, 7, 8], // 橫向
+                    [0, 3, 6], [1, 4, 7], [2, 5, 8], // 垂直
+                    [0, 4, 8], [2, 4, 6] // 斜向
+                ];
+
+                for (let pattern of winPatterns) {
+                    const [a, b, c] = pattern;
+                    if (board[a] !== '' && board[a] === board[b] && board[b] === board[c]) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            // 顯示勝利特效
+            function showWinEffect() {
+                // 高亮顯示獲勝的行
+                const winPatterns = [
+                    [0, 1, 2], [3, 4, 5], [6, 7, 8], // 橫向
+                    [0, 3, 6], [1, 4, 7], [2, 5, 8], // 垂直
+                    [0, 4, 8], [2, 4, 6] // 斜向
+                ];
+
+                for (let pattern of winPatterns) {
+                    const [a, b, c] = pattern;
+                    if (gameBoard[a] === currentPlayer && gameBoard[b] === currentPlayer && gameBoard[c] === currentPlayer) {
+                        // 高亮顯示這三個格子
+                        [a, b, c].forEach(index => {
+                            document.querySelectorAll('.cell')[index].classList.add('win');
+                        });
+                        return;
+                    }
+                }
+            }
+
+            // 初始化遊戲
+            initializeBoard();
+        });
+    </script>
+</body>
+</html>
